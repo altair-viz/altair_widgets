@@ -1,0 +1,5 @@
+ipython
+ipywidgets
+pandas
+altair
+vega>=0.4.4
