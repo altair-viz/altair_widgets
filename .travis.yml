@@ -13,11 +13,12 @@ env:
 matrix:
   include:
   - python: 2.7  # 2.7 is required for node-gyp used in docs build
-    env: BUILD="docs" INSTALL="pip"
+    env: INSTALL="pip"
 
 before_install:
   - if [[ $INSTALL == 'pip' ]]; then
        pip install -r requirements.txt;
+       pip install -r altair_widgets/tests/requirements.txt;
     elif [[ $INSTALL == 'conda' ]]; then
        if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
           wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
@@ -33,13 +34,7 @@ before_install:
        conda create -q -n testenv python=$TRAVIS_PYTHON_VERSION pytest;
        source activate testenv;
        conda install --file requirements.txt;
-    fi
-  - if [[ $BUILD == 'docs' ]]; then
-       if [[ $INSTALL == 'conda' ]]; then
-          conda install --file doc/requirements.txt;
-       elif [[ $INSTALL == 'pip' ]]; then
-          pip install -r doc/requirements.txt;
-       fi
+       pip install -r altair_widgets/tests/requirements.txt;
     fi
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
        sudo apt-get install libcairo2-dev libjpeg8-dev libpango1.0-dev libgif-dev build-essential g++;
@@ -51,7 +46,5 @@ install:
 
 script:
   - if [[ $BUILD == 'test' ]]; then
-       python -m pytest altair --doctest-modules;
-    elif [[ $BUILD == 'docs' ]]; then
-       cd doc && make html;
+       python -m pytest altair_widgets --doctest-modules;
     fi
