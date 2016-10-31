@@ -44,7 +44,8 @@ class Interact:
         self.df = df
         encodings = [{'encoding': encoding}
                      for encoding in encodings[:ndims]]
-        self.settings = {'mark': 'mark_point', 'encodings': encodings}
+        self.settings = {'mark': {'mark': 'mark_point'},
+                         'encodings': encodings}
 
         self.controller = self._generate_controller(columns, ndims)
         self.show = show
@@ -53,9 +54,12 @@ class Interact:
 
         self.plot(self.settings, show=show)
 
-    def _show_advanced(self, button):
+    def _show_advanced(self, button, disable=1):
+        if 'mark' in button.title:
+            disable = 0
+
         row = button.row
-        encoding = self.controller.children[button.row].children[1].value
+        encoding = self.controller.children[row].children[disable].value
         adv = _get_advanced_settings(encoding)
         controllers = [_controllers_for(a) for a in adv]
         for c in controllers:
@@ -63,7 +67,7 @@ class Interact:
             c.observe(self.update, names='value')
 
         visible = self.controller.children[row].children[-1].visible
-        self.controller.children[row].children[1].disabled = not visible
+        self.controller.children[row].children[disable].disabled = not visible
         self.controller.children[row].children[-1].visible = not visible
         self.controller.children[row].children[-1].children = controllers
 
@@ -77,11 +81,12 @@ class Interact:
                                     value=encodings[i])
         encoding.layout.width = '20%'
 
-        adv = widgets.VBox(children=[], visible=False)
+        adv = widgets.HBox(children=[], visible=False)
         adv.layout.display = 'none'
 
-        button = widgets.Button(description='advanced')
+        button = widgets.Button(description='options')
         button.on_click(self._show_advanced)
+        button.layout.width = '10%'
 
         # The callbacks when the button is clicked
         encoding.observe(self.update, names='value')
@@ -112,12 +117,12 @@ class Interact:
         Plots the function at the end of the update (this function is called on
         click).
         """
-        if event['owner'].row == -1:
-            self.settings['mark'] = event['new']
+        index = event['owner'].row
+        title = event['owner'].title
+        value = event['owner'].value
+        if index == -1:
+            self.settings['mark'][title] = event['new']
         else:
-            index = event['owner'].row
-            title = event['owner'].title
-            value = event['owner'].value
             if title == 'type' and 'auto' in value:
                 self.settings['encodings'][index].pop('type', None)
             if title == 'text':
@@ -135,33 +140,42 @@ class Interact:
     def plot(self, settings, show=True):
         """ Assumes nothing in settings is None (i.e., there are no keys in
         settings such that settings[key] == None"""
-        # Seeing if applyColorToBackground (and in the future other global opts)
-        global_opts = {}
-        for e in self.settings['encodings']:
-            for key in ['applyColorToBackground']:
-                if key in e.keys():
-                    global_opts[key] = True
-            settings.pop(key, None)
-
         kwargs = {e['encoding']: _get_plot_command(e)
                   for e in self.settings['encodings']}
 
-        Chart_mark = getattr(altair.Chart(self.df), self.settings['mark'])
-        self.chart = Chart_mark(**global_opts).encode(**kwargs)
+        mark_opts = {k: v for k, v in self.settings['mark'].items()}
+        mark = mark_opts.pop('mark')
+        Chart_mark = getattr(altair.Chart(self.df), mark)
+        self.chart = Chart_mark(**mark_opts).encode(**kwargs)
         if show and self.show:
             clear_output()
             display(self.chart)
 
     def _generate_controller(self, columns, ndims):
         marks = _get_marks()
+        # mark button
         mark_choose = widgets.Dropdown(options=marks, description='Marks')
         mark_choose.observe(self.update, names='value')
-        mark_choose.layout.width = '50px'
+        mark_choose.layout.width = '20%'
         mark_choose.row = -1
+        mark_choose.title = 'mark'
+
+        # mark options button
+        mark_but = widgets.Button(description='options')
+        mark_but.layout.width = '10%'
+        mark_but.row = -1
+        mark_but.title = 'mark_button'
+
+        # Mark options
+        mark_opt = widgets.VBox(children=[], visible=False)
+        mark_but.on_click(self._show_advanced)
+        mark_opt.title = 'mark_options'
+        mark_opt.layout.width = '300px'
+
 
         dims = [self._create_shelf(columns, i=i) for i in range(ndims)]
 
-        choices = dims + [mark_choose]
+        choices = dims + [widgets.HBox([mark_choose, mark_but, mark_opt])]
         return widgets.VBox(choices)
 
 
@@ -185,22 +199,42 @@ def _get_functions():
 
 
 def _get_marks():
+    """
+    >>> _get_marks()[0]
+    'mark_point'
+    """
     return ['mark_' + f for f in ['point', 'circle', 'line', 'bar', 'tick',
                                   'text', 'square', 'rule', 'area']]
 
+def _get_mark_params():
+    return ['color', 'applyColorToBackground', 'shortTimeLabels']
+
 
 def _get_advanced_settings(e):
-    """ Given string encoding (e.g. 'x'), returns a dictionary """
+    """
+    Given string encoding (e.g. 'x'), returns a dictionary
+
+    >>> _get_advanced_settings('x')
+    ['type', 'bin', 'aggregate', 'zero', 'scale']
+    """
     adv_settings = {e: ['type', 'bin', 'aggregate']
                     for e in _get_encodings()}
     adv_settings['x'] += ['zero', 'scale']
     adv_settings['y'] += ['zero', 'scale']
-    adv_settings['color'] += ['applyColorToBackground']
     adv_settings['text'] += ['text']
+
+    mark_settings = {mark: _get_mark_params() for mark in _get_marks()}
+    adv_settings.update(mark_settings)
     return adv_settings[e]
 
 
 def _controllers_for(opt):
+    """
+    Give a string representing the parameter represented, find the appropriate
+    command.
+
+    """
+    colors = [None, 'blue', 'red', 'green', 'black']
     controllers = {'type': widgets.Dropdown(options=['auto detect'] +\
                            _get_types(), description='type'),
                    'bin': widgets.Checkbox(description='bin'),
@@ -210,19 +244,31 @@ def _controllers_for(opt):
                    'text': widgets.Text(description='text value'),
                    'scale': widgets.Dropdown(options=['linear', 'log'],
                                              description='scale'),
-                   'applyColorToBackground':
-                       widgets.Checkbox(description='applyColorToBackground')
+                    'color': widgets.Dropdown(options=colors,
+                                             description='main color'),
+                    'applyColorToBackground': widgets.Checkbox(description='applyColorToBackground'),
+                    'shortTimeLabels': widgets.Checkbox(description='shortTimeLabels')
                   }
 
     for title, controller in controllers.items():
         controller.title = title
-    controllers['zero'].value = True
+        if 'Checkbox' in str(controller):
+            # traits = dir(controller.layout)
+            # traits = [t for t in traits if t[0] != '_']
+            controller.layout.max_width = '200ex'
+            # controller.layout.min_width = '100ex'
+            # controller.layout.width = '150ex'
+
     return controllers[opt]
 
 
 def _get_plot_command(e):
     """ Given a function, data type and data column name,
     find the plot command
+
+    >>> e = {'encoding': 'x', 'column': 'petalWidth', 'scale': 'log'}
+    >>> r = _get_plot_command(e)
+    >>> assert r.to_dict() == {'field': 'petalWidth', 'scale': {'type': 'log'}}
     """
     d = {k: v for k, v in e.items()}
     if 'column' not in e:
@@ -230,7 +276,6 @@ def _get_plot_command(e):
 
     encoding = d.pop('encoding')
     column = d.pop('column')
-    d.pop('applyColorToBackground', None)
 
     scale = {}
     if any([key in d for key in ['scale', 'zero']]):
