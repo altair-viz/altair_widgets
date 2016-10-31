@@ -32,7 +32,6 @@ class Interact:
     Public member functions
     -----------------------
     - Interact.__init__(self, df, ndims=3, show=True)
-    - Interact.update(self, button):
     - Interact.plot(self, settings, show=True):
 
     """
@@ -52,7 +51,7 @@ class Interact:
         if self.show:
             display(self.controller)
 
-        self.plot(self.settings, show=show)
+        self.plot(show=show)
 
     def _show_advanced(self, button, disable=1):
         if 'mark' in button.title:
@@ -64,7 +63,7 @@ class Interact:
         controllers = [_controllers_for(a) for a in adv]
         for c in controllers:
             c.row = row
-            c.observe(self.update, names='value')
+            c.observe(self._update, names='value')
 
         visible = self.controller.children[row].children[-1].visible
         self.controller.children[row].children[disable].disabled = not visible
@@ -89,8 +88,8 @@ class Interact:
         button.layout.width = '10%'
 
         # The callbacks when the button is clicked
-        encoding.observe(self.update, names='value')
-        cols.observe(self.update, names='value')
+        encoding.observe(self._update, names='value')
+        cols.observe(self._update, names='value')
 
         # Making sure we know what row we're in in the callbacks
         encoding.row = cols.row = button.row = adv.row = i
@@ -103,7 +102,7 @@ class Interact:
 
         return widgets.HBox([cols, encoding, button, adv])
 
-    def update(self, event):
+    def _update(self, event):
         """
         Given a button-clicking event, update the encoding settings.
 
@@ -137,9 +136,9 @@ class Interact:
                     self.settings['encodings'][index][title] = event['new']
         self.plot(self.settings)
 
-    def plot(self, settings, show=True):
-        """ Assumes nothing in settings is None (i.e., there are no keys in
-        settings such that settings[key] == None"""
+    def plot(self, show=True):
+        """ Assumes nothing in self.settings is None (i.e., there are no keys
+        in settings such that settings[key] == None"""
         kwargs = {e['encoding']: _get_plot_command(e)
                   for e in self.settings['encodings']}
 
@@ -155,7 +154,7 @@ class Interact:
         marks = _get_marks()
         # mark button
         mark_choose = widgets.Dropdown(options=marks, description='Marks')
-        mark_choose.observe(self.update, names='value')
+        mark_choose.observe(self._update, names='value')
         mark_choose.layout.width = '20%'
         mark_choose.row = -1
         mark_choose.title = 'mark'
