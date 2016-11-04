@@ -12,14 +12,17 @@ def interact_with(df, ndims=3, **kwargs):
     ----------
     df : DataFrame
         The DataFrame to interact with
+
     ndims : int, optional
-        The number of dimensions wished to encode (the number of rows with
-        encoding/data/function/data_type).
+        The number of dimensions wished to encode at start (the number of rows
+        with encoding/data/function/data_type).
 
     Notes
     -----
-    In the Jupyter notebook, display a widget
-    to allow you to selectively plot columns to plot/encode/etc.
+    In the Jupyter notebook, display a widget to allow you to selectively plot
+    columns to plot/encode/etc.
+
+    Use a smaller value if ndims if less dimensions and controls are desired.
 
     """
     return Interact(df, ndims=ndims, **kwargs)
@@ -39,6 +42,7 @@ class Interact:
         if not isinstance(df, pd.core.frame.DataFrame):
             raise ValueError('Interact takes a DataFrame as input')
         columns = [None] + _get_columns(df)
+        self.columns = columns
         encodings = _get_encodings()
         self.df = df
         encodings = [{'encoding': encoding}
@@ -46,7 +50,7 @@ class Interact:
         self.settings = {'mark': {'mark': 'mark_point'},
                          'encodings': encodings}
 
-        self.controller = self._generate_controller(columns, ndims)
+        self.controller = self._generate_controller(ndims)
         self.show = show
         if self.show:
             display(self.controller)
@@ -55,7 +59,7 @@ class Interact:
 
     def _show_advanced(self, button, disable=1):
         if 'mark' in button.title:
-            disable = 0
+            disable = 1
 
         row = button.row
         encoding = self.controller.children[row].children[disable].value
@@ -70,12 +74,12 @@ class Interact:
         self.controller.children[row].children[-1].visible = not visible
         self.controller.children[row].children[-1].children = controllers
 
-    def _create_shelf(self, columns, i=0):
+    def _create_shelf(self, i=0):
         """ Creates shelf to plot a dimension (includes buttons
         for data column, encoding, data type, aggregate)"""
         encodings = _get_encodings()
 
-        cols = widgets.Dropdown(options=columns, description='encode')
+        cols = widgets.Dropdown(options=self.columns, description='encode')
         encoding = widgets.Dropdown(options=encodings, description='as',
                                     value=encodings[i])
         encoding.layout.width = '20%'
@@ -150,7 +154,7 @@ class Interact:
             clear_output()
             display(self.chart)
 
-    def _generate_controller(self, columns, ndims):
+    def _generate_controller(self, ndims):
         marks = _get_marks()
         # mark button
         mark_choose = widgets.Dropdown(options=marks, description='Marks')
@@ -171,11 +175,27 @@ class Interact:
         mark_opt.title = 'mark_options'
         mark_opt.layout.width = '300px'
 
+        add_dim = widgets.Button(description='add encoding')
+        add_dim.on_click(self._add_dim)
+        # add_dim.layout.width
 
-        dims = [self._create_shelf(columns, i=i) for i in range(ndims)]
+        dims = [self._create_shelf(i=i) for i in range(ndims)]
 
-        choices = dims + [widgets.HBox([mark_choose, mark_but, mark_opt])]
+        choices = dims + [widgets.HBox([add_dim, mark_choose, mark_but, mark_opt])]
         return widgets.VBox(choices)
+
+    def _add_dim(self, button):
+        i = len(self.controller.children) - 1
+        encoding = _get_encodings()[i]
+        shelf = self._create_shelf(i=i)
+        kids = self.controller.children
+        teens = list(kids)[:-1] + [shelf] + [list(kids)[-1]]
+        self.controller.children = teens
+
+        # clear_output()
+        # display(self.controller)
+        self.settings['encodings'] += [{'encoding': encoding}]
+        self.plot(self.settings)
 
 
 def _get_columns(df):
