@@ -1,10 +1,10 @@
 import altair
-from ipywidgets import interact, interactive, fixed
 import ipywidgets as widgets
 from IPython.display import display, clear_output
+import pandas as pd
 
 
-def interact_with(df, ndims=3):
+def interact_with(df, ndims=3, **kwargs):
     """
     Interactively view a DataFrame.
 
@@ -12,155 +12,301 @@ def interact_with(df, ndims=3):
     ----------
     df : DataFrame
         The DataFrame to interact with
+
     ndims : int, optional
-        The number of dimensions wished to encode (the number of rows with
-        encoding/data/function/data_type).
+        The number of dimensions wished to encode at start (the number of rows
+        with encoding/data/function/data_type).
 
     Notes
     -----
-    In the Jupyter notebook, display a widget
-    to allow you to selectively plot columns to plot/encode/etc.
+    In the Jupyter notebook, display a widget to allow you to selectively plot
+    columns to plot/encode/etc.
+
+    Use a smaller value if ndims if less dimensions and controls are desired.
 
     """
-    w = Interact(df, ndims=ndims)
+    return Interact(df, ndims=ndims, **kwargs)
 
 
 class Interact:
     """
-    Display an interactive widgets to plot columns in a given DataFrame. This
-    widget allows you to select which columns to plot, what the encoding of
-    each column is, etc.
+    The class to that provides the interaction interface.
 
-    >>> from altair import load_dataset
-    >>> cars = load_dataset('cars')
-    >>> list(cars.columns)
-    ['Acceleration', 'Cylinders', 'Displacement', 'Horsepower', 'Miles_per_Gallon', 'Name', 'Origin', 'Weight_in_lbs', 'Year']
-    >>> from altair_widgets import Interact
-    >>> Interact(cars)
-
-    In the Jupyter notebook, this displays an interactive widget
+    Public member functions
+    -----------------------
+    - Interact.__init__(self, df, ndims=3, show=True)
+    - Interact.plot(self, settings, show=True):
 
     """
-    def __init__(self, df, ndims=3):
-        self.columns = [None] + list(df.columns)
-        self.choices, self.widget = self.create_initial_widget(df, ndims=ndims)
+    def __init__(self, df, ndims=3, show=True):
+        if not isinstance(df, pd.core.frame.DataFrame):
+            raise ValueError('Interact takes a DataFrame as input')
+        columns = [None] + _get_columns(df)
+        self.columns = columns
+        encodings = _get_encodings()
         self.df = df
-        self.state = self.read_state()
+        encodings = [{'encoding': encoding}
+                     for encoding in encodings[:ndims]]
+        self.settings = {'mark': {'mark': 'mark_point'},
+                         'encodings': encodings}
 
-        display(self.widget)
-        self.plot()
+        self.controller = self._generate_controller(ndims)
+        self.show = show
+        if self.show:
+            display(self.controller)
 
-    def get_marks(self):
-        """ Get the marks that Altair/Vega supports """
-        marks = ['mark_' + f for f in ['point', 'line', 'bar', 'tick', 'text',
-                                       'square', 'rule', 'circle', 'area']]
-        mark = widgets.Dropdown(options=marks, description='Marks')
-        mark.layout.width = '20%'
-        mark.observe(self.plot, names='value')
-        return mark
+        self.plot(show=show)
 
-    def add_dimension(self, b):
-        """ DEBUG: doesn't work """
-        self.choices += [self.create_shelf()]
-        self.widget = widgets.VBox(self.choices)
+    def _show_advanced(self, button, disable=1):
+        if 'mark' in button.title:
+            disable = 1
 
-    def get_add_dim_button(self):
-        """ Get a "Add dimension" button """
-        s = widgets.Button(description='Add dimension')
-        s.on_click(self.add_dimension)
-        return s
+        defaults = {'log': False, 'bin': False, 'scale': 'linear',
+                    'type': 'auto detect', 'aggregate': None, 'zero': True}
 
-    def create_shelf(self, i=0):
+        row = button.row
+        encoding = self.controller.children[row].children[disable].value
+        adv = _get_advanced_settings(encoding)
+        controllers = [_controllers_for(a) for a in adv]
+        for c in controllers:
+            if c.title in self.settings['encodings'][row]:
+                c.value = self.settings['encodings'][row][c.title]
+            else:
+                c.value = defaults[c.title]
+            c.row = row
+            c.observe(self._update, names='value')
+
+        visible = self.controller.children[row].children[-1].visible
+        self.controller.children[row].children[disable].disabled = not visible
+        self.controller.children[row].children[-1].visible = not visible
+        self.controller.children[row].children[-1].children = controllers
+
+    def _create_shelf(self, i=0):
         """ Creates shelf to plot a dimension (includes buttons
-        for data column, encoding, data type, function)"""
-        cols = self.columns
-        types = ['auto', 'Q', 'O', 'N']
-        encodings = ['x', 'y', 'color', 'text', 'shape', 'size', 'row',
-                     'column']
-        functions = [None, 'mean', 'min', 'max', 'median', 'average', 'sum',
-                     'count', 'distinct', 'variance', 'stdev', 'q1', 'q3',
-                     'argmin', 'argmax']
+        for data column, encoding, data type, aggregate)"""
+        encodings = _get_encodings()
 
-        data = widgets.Dropdown(options=cols, description='data')
-        type_ = widgets.Dropdown(options=types, description='data_type')
-        encoding = widgets.Dropdown(options=encodings, description='encoding',
+        cols = widgets.Dropdown(options=self.columns, description='encode')
+        encoding = widgets.Dropdown(options=encodings, description='as',
                                     value=encodings[i])
-        fns = widgets.Dropdown(options=functions, description='function')
-
-        type_.layout.width = '20%'
         encoding.layout.width = '20%'
-        data.layout.width = '25%'
-        fns.layout.width = '20%'
 
-        encoding.observe(self.plot, names='value')
-        data.observe(self.plot, names='value')
-        type_.observe(self.plot, names='value')
-        fns.observe(self.plot, names='value')
-        return [encoding, data, fns, type_]
+        adv = widgets.HBox(children=[], visible=False)
+        adv.layout.display = 'none'
 
-    def create_initial_widget(self, df, ndims=3):
-        """ Creates initial widget """
-        cols = [None] + list(df.columns)
+        button = widgets.Button(description='options')
+        button.on_click(self._show_advanced)
+        button.layout.width = '10%'
 
-        top = [self.get_marks()]#, self.get_add_dim_button()]
-        dims = [self.create_shelf(i=i) for i in range(ndims)]
+        # The callbacks when the button is clicked
+        encoding.observe(self._update, names='value')
+        cols.observe(self._update, names='value')
 
-        choices = [top] + dims
-        return choices, widgets.VBox([widgets.HBox(f) for f in choices])
+        # Making sure we know what row we're in in the callbacks
+        encoding.row = cols.row = button.row = adv.row = i
 
-    def get_plot_command(self, e):
-        """ Given a function, data type and data column name,
-        find the plot command
+        # Have the titles so we know what button we're editing
+        encoding.title = 'encoding'
+        cols.title = 'field'
+        button.title = 'button'
+        adv.title = 'advanced'
 
+        return widgets.HBox([cols, encoding, button, adv])
 
-        >>> get_plot_command({'data': 'horsepower', 'encoding': 'x',
-        ...                   'data_type': 'Q', 'function': 'min'})
-        min(horsepower:Q)
+    def _update(self, event):
         """
-        if e['data'] is None:
-            return
-        r = e['data']
-        if 'data_type' in e.keys() and e['data_type']:
-            r = e['data'] + ':' + e['data_type']
-        if e['function']:
-            r = e['function'] + '(' + r +  ')'
-        return r
+        Given a button-clicking event, update the encoding settings.
 
-    def plot(self, button=None):
+        Parameters
+        ----------
+        event : dict
+            Dictionary describing event. Assumed to have keys ['owner', 'new',
+            'old'] with the key corresponding to owner having properties [row,
+            title, value]
+
+        Plots the function at the end of the update (this function is called on
+        click).
         """
-        Actually plot the graph given by the sliders
-        """
-        self.state = self.read_state()
-
-        kwargs = {e['encoding']: self.get_plot_command(e)
-                  for e in self.state['encoding']}
-        # Delete the values of None from kwargs (if it's not passed in don't
-        # encode it)
-        for key, value in list(kwargs.items()):
-            if value in {None, False, 'None'}:
-                del kwargs[key]
-
-        self.plot = getattr(altair.Chart(self.df), self.state['mark'])().encode(**kwargs)
-
-        clear_output()
-        display(self.plot)
-
-    def read_state(self):
-        """
-        Read the current choice in the Dropdown menu
-        """
-        encodings = []
-        for encoding in self.choices[1:]:
-            d = {}
-            for i, name in enumerate(['encoding', 'data', 'function', 'data_type']):
-                # Perform some basic filtering for default type of 'auto'
-                # Make it None so not read by altair as 'auto'
-                if name == 'data_type' and encoding[i].value == 'auto':
-                    d[name] = None
+        index = event['owner'].row
+        title = event['owner'].title
+        value = event['owner'].value
+        if index == -1:
+            self.settings['mark'][title] = event['new']
+        else:
+            if title == 'type' and 'auto' in value:
+                self.settings['encodings'][index].pop('type', None)
+            if title == 'text':
+                if value is '':
+                    self.settings['encodings'][index].pop('text', None)
                 else:
-                    d[name] = encoding[i].value
-            encodings += [d]
+                    self.settings['encodings'][index]['field'] = value
+            else:
+                if event['new'] is None:
+                    self.settings['encodings'][index].pop(title)
+                else:
+                    self.settings['encodings'][index][title] = event['new']
+        self.plot(self.settings)
 
-        mark = self.choices[0][0].value
-        ret = {'mark': mark, 'encoding': encodings}
-        return ret
+    def plot(self, show=True):
+        """ Assumes nothing in self.settings is None (i.e., there are no keys
+        in settings such that settings[key] == None"""
+        kwargs = {e['encoding']: _get_plot_command(e)
+                  for e in self.settings['encodings']}
+
+        mark_opts = {k: v for k, v in self.settings['mark'].items()}
+        mark = mark_opts.pop('mark')
+        Chart_mark = getattr(altair.Chart(self.df), mark)
+        self.chart = Chart_mark(**mark_opts).encode(**kwargs)
+        if show and self.show:
+            clear_output()
+            display(self.chart)
+
+    def _generate_controller(self, ndims):
+        marks = _get_marks()
+        # mark button
+        mark_choose = widgets.Dropdown(options=marks, description='Marks')
+        mark_choose.observe(self._update, names='value')
+        mark_choose.layout.width = '20%'
+        mark_choose.row = -1
+        mark_choose.title = 'mark'
+
+        # mark options button
+        mark_but = widgets.Button(description='options')
+        mark_but.layout.width = '10%'
+        mark_but.row = -1
+        mark_but.title = 'mark_button'
+
+        # Mark options
+        mark_opt = widgets.VBox(children=[], visible=False)
+        mark_but.on_click(self._show_advanced)
+        mark_opt.title = 'mark_options'
+        mark_opt.layout.width = '300px'
+
+        add_dim = widgets.Button(description='add encoding')
+        add_dim.on_click(self._add_dim)
+        # add_dim.layout.width
+
+        dims = [self._create_shelf(i=i) for i in range(ndims)]
+
+        choices = dims + [widgets.HBox([add_dim, mark_choose, mark_but, mark_opt])]
+        return widgets.VBox(choices)
+
+    def _add_dim(self, button):
+        i = len(self.controller.children) - 1
+        encoding = _get_encodings()[i]
+        shelf = self._create_shelf(i=i)
+        kids = self.controller.children
+        teens = list(kids)[:-1] + [shelf] + [list(kids)[-1]]
+        self.controller.children = teens
+
+        # clear_output()
+        # display(self.controller)
+        self.settings['encodings'] += [{'encoding': encoding}]
+        self.plot(self.settings)
+
+
+def _get_columns(df):
+    return list(df.columns) + ['*']
+
+
+def _get_types():
+    return ['quantitative', 'ordinal', 'nominal', 'temporal']
+
+
+def _get_encodings():
+    return ['x', 'y', 'color', 'text', 'row', 'column',
+            'opacity', 'shape', 'size']
+
+
+def _get_functions():
+    return ['mean', 'min', 'max', 'median', 'average', 'sum',
+            'count', 'distinct', 'variance', 'stdev', 'q1', 'q3',
+            'argmin', 'argmax']
+
+
+def _get_marks():
+    """
+    >>> _get_marks()[0]
+    'mark_point'
+    """
+    return ['mark_' + f for f in ['point', 'circle', 'line', 'bar', 'tick',
+                                  'text', 'square', 'rule', 'area']]
+
+def _get_mark_params():
+    return ['color', 'applyColorToBackground', 'shortTimeLabels']
+
+
+def _get_advanced_settings(e):
+    """
+    Given string encoding (e.g. 'x'), returns a dictionary
+
+    >>> _get_advanced_settings('x')
+    ['type', 'bin', 'aggregate', 'zero', 'scale']
+    """
+    adv_settings = {e: ['type', 'bin', 'aggregate']
+                    for e in _get_encodings()}
+    adv_settings['x'] += ['zero', 'scale']
+    adv_settings['y'] += ['zero', 'scale']
+    adv_settings['text'] += ['text']
+
+    mark_settings = {mark: _get_mark_params() for mark in _get_marks()}
+    adv_settings.update(mark_settings)
+    return adv_settings[e]
+
+
+def _controllers_for(opt):
+    """
+    Give a string representing the parameter represented, find the appropriate
+    command.
+
+    """
+    colors = [None, 'blue', 'red', 'green', 'black']
+    controllers = {'type': widgets.Dropdown(options=['auto detect'] +\
+                           _get_types(), description='type'),
+                   'bin': widgets.Checkbox(description='bin'),
+                   'aggregate': widgets.Dropdown(options=[None] +\
+                                _get_functions(), description='aggregate'),
+                   'zero': widgets.Checkbox(description='zero'),
+                   'text': widgets.Text(description='text value'),
+                   'scale': widgets.Dropdown(options=['linear', 'log'],
+                                             description='scale'),
+                    'color': widgets.Dropdown(options=colors,
+                                             description='main color'),
+                    'applyColorToBackground': widgets.Checkbox(description='applyColorToBackground'),
+                    'shortTimeLabels': widgets.Checkbox(description='shortTimeLabels')
+                  }
+
+    for title, controller in controllers.items():
+        controller.title = title
+        if 'Checkbox' in str(controller):
+            # traits = dir(controller.layout)
+            # traits = [t for t in traits if t[0] != '_']
+            controller.layout.max_width = '200ex'
+            # controller.layout.min_width = '100ex'
+            # controller.layout.width = '150ex'
+
+    return controllers[opt]
+
+
+def _get_plot_command(e):
+    """ Given a function, data type and data column name,
+    find the plot command
+
+    >>> e = {'encoding': 'x', 'field': 'petalWidth', 'scale': 'log'}
+    >>> r = _get_plot_command(e)
+    >>> assert r.to_dict() == {'field': 'petalWidth', 'scale': {'type': 'log'}}
+    """
+    d = {k: v for k, v in e.items()}
+    if 'field' not in e:
+        return
+
+    encoding = d.pop('encoding')
+    column = d.pop('field')
+
+    scale = {}
+    if any([key in d for key in ['scale', 'zero']]):
+        scale = {'scale': altair.Scale(type=d.pop('scale', None),
+                                       zero=d.pop('zero', None))}
+
+    d.update(scale)
+    return getattr(altair, encoding.capitalize())(column, **d)
