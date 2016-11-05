@@ -61,11 +61,18 @@ class Interact:
         if 'mark' in button.title:
             disable = 1
 
+        defaults = {'log': False, 'bin': False, 'scale': 'linear',
+                    'type': 'auto detect', 'aggregate': None, 'zero': True}
+
         row = button.row
         encoding = self.controller.children[row].children[disable].value
         adv = _get_advanced_settings(encoding)
         controllers = [_controllers_for(a) for a in adv]
         for c in controllers:
+            if c.title in self.settings['encodings'][row]:
+                c.value = self.settings['encodings'][row][c.title]
+            else:
+                c.value = defaults[c.title]
             c.row = row
             c.observe(self._update, names='value')
 
@@ -285,7 +292,7 @@ def _get_plot_command(e):
     """ Given a function, data type and data column name,
     find the plot command
 
-    >>> e = {'encoding': 'x', 'column': 'petalWidth', 'scale': 'log'}
+    >>> e = {'encoding': 'x', 'field': 'petalWidth', 'scale': 'log'}
     >>> r = _get_plot_command(e)
     >>> assert r.to_dict() == {'field': 'petalWidth', 'scale': {'type': 'log'}}
     """
