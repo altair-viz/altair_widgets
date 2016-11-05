@@ -100,7 +100,7 @@ class Interact:
 
         # Have the titles so we know what button we're editing
         encoding.title = 'encoding'
-        cols.title = 'column'
+        cols.title = 'field'
         button.title = 'button'
         adv.title = 'advanced'
 
@@ -132,7 +132,7 @@ class Interact:
                 if value is '':
                     self.settings['encodings'][index].pop('text', None)
                 else:
-                    self.settings['encodings'][index]['column'] = value
+                    self.settings['encodings'][index]['field'] = value
             else:
                 if event['new'] is None:
                     self.settings['encodings'][index].pop(title)
@@ -290,11 +290,11 @@ def _get_plot_command(e):
     >>> assert r.to_dict() == {'field': 'petalWidth', 'scale': {'type': 'log'}}
     """
     d = {k: v for k, v in e.items()}
-    if 'column' not in e:
+    if 'field' not in e:
         return
 
     encoding = d.pop('encoding')
-    column = d.pop('column')
+    column = d.pop('field')
 
     scale = {}
     if any([key in d for key in ['scale', 'zero']]):
