@@ -1,8 +1,14 @@
 LONG_DESCRIPTION = """
-This package provides interactive data visualization tools.
+This package provides interactive data visualization tools in the Jupyter
+Notebook.
+
+The interactive visualization tool that is provided allows data selection
+through HTML widgets and outputs a Vega-lite plot through Altair. In the HTML
+widget it is possible to select columns to plot in various encodings. This
+widget also supports some basic configuration (i.e., log vs linear scales).
 """
 
-DESCRIPTION         = "Altair Widgets: An interactive visualization for statistical data in for Python."
+DESCRIPTION         = "Altair Widgets: An interactive visualization for statistical data for Python."
 NAME                = "altair_widgets"
 PACKAGES            = ['altair_widgets']
 AUTHOR              = "Scott Sievert"
@@ -43,7 +49,6 @@ def version(path):
 
 
 VERSION = version('altair_widgets/__init__.py')
-# PACKAGE_DATA = {'altair_widgets': ['example/*']}
 
 
 setup(name=NAME,
