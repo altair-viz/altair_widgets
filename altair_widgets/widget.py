@@ -66,7 +66,10 @@ class Interact:
             disable = 1
 
         defaults = {'log': False, 'bin': False, 'scale': 'linear',
-                    'type': 'auto detect', 'aggregate': None, 'zero': True}
+                    'type': 'auto detect', 'aggregate': None, 'zero': True,
+                    'color': None,
+                    'applyColorToBackground': False,
+                    'shortTimeLabels': False}
 
         row = button.row
         encoding = self.controller.children[row].children[disable].value
