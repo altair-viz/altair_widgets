@@ -58,6 +58,10 @@ class Interact:
         self.plot(show=show)
 
     def _show_advanced(self, button, disable=1):
+        """
+        Toggles the "options" items.
+
+        """
         if 'mark' in button.title:
             disable = 1
 
@@ -79,11 +83,15 @@ class Interact:
         visible = self.controller.children[row].children[-1].visible
         self.controller.children[row].children[disable].disabled = not visible
         self.controller.children[row].children[-1].visible = not visible
+        controllers = controllers if not visible else []
         self.controller.children[row].children[-1].children = controllers
 
     def _create_shelf(self, i=0):
-        """ Creates shelf to plot a dimension (includes buttons
-        for data column, encoding, data type, aggregate)"""
+        """
+        Creates shelf to plot a dimension (includes buttons
+        for data column, encoding, data type, aggregate)
+
+        """
         encodings = _get_encodings()
 
         cols = widgets.Dropdown(options=self.columns, description='encode')
@@ -91,8 +99,7 @@ class Interact:
                                     value=encodings[i])
         encoding.layout.width = '20%'
 
-        adv = widgets.HBox(children=[], visible=False)
-        adv.layout.display = 'none'
+        adv = widgets.VBox(children=[], visible=False)
 
         button = widgets.Button(description='options')
         button.on_click(self._show_advanced)
@@ -150,6 +157,7 @@ class Interact:
     def plot(self, show=True):
         """ Assumes nothing in self.settings is None (i.e., there are no keys
         in settings such that settings[key] == None"""
+
         kwargs = {e['encoding']: _get_plot_command(e)
                   for e in self.settings['encodings']}
 

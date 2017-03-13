@@ -1,5 +1,5 @@
 ipython
-ipywidgets
+ipywidgets>=6.0
 pandas
 altair
 vega>=0.4.4
