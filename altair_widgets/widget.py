@@ -1,6 +1,6 @@
 import altair
 import ipywidgets as widgets
-from IPython.display import display, clear_output
+from IPython.display import display, clear_output, display_pretty
 import pandas as pd
 
 
@@ -63,7 +63,7 @@ class Interact:
 
         """
         if 'mark' in button.title:
-            disable = 1
+            disable = 2
 
         defaults = {'log': False, 'bin': False, 'scale': 'linear',
                     'type': 'auto detect', 'aggregate': None, 'zero': True,
@@ -195,12 +195,19 @@ class Interact:
 
         add_dim = widgets.Button(description='add encoding')
         add_dim.on_click(self._add_dim)
-        # add_dim.layout.width
+
+        generation = widgets.Button(description='chart.to_altair()')
+        generation.on_click(self._show_source)
 
         dims = [self._create_shelf(i=i) for i in range(ndims)]
 
-        choices = dims + [widgets.HBox([add_dim, mark_choose, mark_but, mark_opt])]
+        choices = dims + [widgets.HBox([add_dim, generation, mark_choose,
+                                        mark_but, mark_opt])]
         return widgets.VBox(choices)
+
+    def _show_source(self, button):
+        code = self.chart.to_altair()
+        display_pretty(code, raw=True)
 
     def _add_dim(self, button):
         i = len(self.controller.children) - 1
