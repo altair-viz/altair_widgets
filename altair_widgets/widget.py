@@ -196,16 +196,16 @@ class Interact:
         add_dim = widgets.Button(description='add encoding')
         add_dim.on_click(self._add_dim)
 
-        generation = widgets.Button(description='chart.to_altair()')
-        generation.on_click(self._show_source)
+        to_altair = widgets.Button(description='chart.to_altair()')
+        to_altair.on_click(self._to_altair)
 
         dims = [self._create_shelf(i=i) for i in range(ndims)]
 
-        choices = dims + [widgets.HBox([add_dim, generation, mark_choose,
+        choices = dims + [widgets.HBox([add_dim, to_altair, mark_choose,
                                         mark_but, mark_opt])]
         return widgets.VBox(choices)
 
-    def _show_source(self, button):
+    def _to_altair(self, button):
         code = self.chart.to_altair()
         display_pretty(code, raw=True)
 
