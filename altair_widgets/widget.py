@@ -247,8 +247,8 @@ def _get_marks():
     >>> _get_marks()[0]
     'mark_point'
     """
-    return ['mark_' + f for f in ['point', 'circle', 'line', 'bar', 'tick',
-                                  'text', 'square', 'rule', 'area']]
+    return [m for m in dir(altair.mixins.MarkMethodMixin()) if
+            m.startswith('mark_')]
 
 def _get_mark_params():
     return ['color', 'applyColorToBackground', 'shortTimeLabels']
