@@ -228,7 +228,7 @@ def _get_columns(df):
 
 
 def _get_types():
-    return ['quantitative', 'ordinal', 'nominal', 'temporal']
+    return list(altair.utils.core.TYPECODE_MAP.keys())
 
 
 def _get_encodings():
