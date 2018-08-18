@@ -237,9 +237,7 @@ def _get_encodings():
 
 
 def _get_functions():
-    return ['mean', 'min', 'max', 'median', 'average', 'sum',
-            'count', 'distinct', 'variance', 'stdev', 'q1', 'q3',
-            'argmin', 'argmax']
+    return altair.utils.core.AGGREGATES
 
 
 def _get_marks():
