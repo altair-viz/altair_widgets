@@ -1,7 +1,8 @@
 import altair
 import ipywidgets as widgets
-from IPython.display import display, clear_output, display_pretty
+from IPython.display import display, clear_output, display_pretty, HTML, Image, SVG
 import pandas as pd
+import io
 
 
 def interact_with(df, ndims=3, **kwargs):
@@ -42,6 +43,7 @@ class Interact:
         if not isinstance(df, pd.core.frame.DataFrame):
             raise ValueError('Interact takes a DataFrame as input')
         columns = [None] + _get_columns(df)
+        #  columns = _get_columns(df)
         self.columns = columns
         encodings = _get_encodings()
         self.df = df
@@ -158,11 +160,9 @@ class Interact:
         self.plot(self.settings)
 
     def plot(self, show=True):
-        """ Assumes nothing in self.settings is None (i.e., there are no keys
-        in settings such that settings[key] == None"""
-
         kwargs = {e['encoding']: _get_plot_command(e)
                   for e in self.settings['encodings']}
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
         mark_opts = {k: v for k, v in self.settings['mark'].items()}
         mark = mark_opts.pop('mark')
@@ -170,7 +170,14 @@ class Interact:
         self.chart = Chart_mark(**mark_opts).encode(**kwargs)
         if show and self.show:
             clear_output()
-            display(self.chart)
+            display('Updating...')
+            with io.StringIO() as f:
+                self.chart.save(f, format='svg')
+                f.seek(0)
+                html = f.read()
+            clear_output()
+            display(self.controller)
+            display(SVG(html))
 
     def _generate_controller(self, ndims):
         marks = _get_marks()
@@ -196,18 +203,11 @@ class Interact:
         add_dim = widgets.Button(description='add encoding')
         add_dim.on_click(self._add_dim)
 
-        to_altair = widgets.Button(description='chart.to_altair()')
-        to_altair.on_click(self._to_altair)
-
         dims = [self._create_shelf(i=i) for i in range(ndims)]
 
-        choices = dims + [widgets.HBox([add_dim, to_altair, mark_choose,
+        choices = dims + [widgets.HBox([add_dim, mark_choose,
                                         mark_but, mark_opt])]
         return widgets.VBox(choices)
-
-    def _to_altair(self, button):
-        code = self.chart.to_altair()
-        display_pretty(code, raw=True)
 
     def _add_dim(self, button):
         i = len(self.controller.children) - 1
