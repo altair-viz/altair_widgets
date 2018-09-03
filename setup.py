@@ -16,8 +16,8 @@ AUTHOR_EMAIL        = "dev@stsievert.com"
 URL                 = 'http://altair-viz.github.io'
 DOWNLOAD_URL        = 'http://github.com/altair-viz/altair_widgets/'
 LICENSE             = 'BSD 3-clause'
-INSTALL_REQUIRES    = ['ipython', 'ipywidgets>=7.0.0', 'pandas', 'altair>=2.0.0',
-                       'vega>=0.4.4']
+with open('./requirements.txt', 'r') as f:
+    INSTALL_REQUIRES = [x for x in f.read().split('\n') if len(x) > 0]
 
 import io
 import os
