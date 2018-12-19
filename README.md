@@ -34,6 +34,9 @@ $ jupyter nbextension enable --py --sys-prefix widgetsnbextension
 $ jupyter nbextension enable --py --sys-prefix vega
 ```
 
+altair_widgets will not work with Google Colab as Colab does not support ipywidgets.
+To track ipywidgets support on Google Colab, see https://github.com/googlecolab/colabtools/issues/60.
+
 
 [Altair]:https://altair-viz.github.io
 [vega-lite]:https://vega.github.io
