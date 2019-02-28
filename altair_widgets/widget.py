@@ -91,12 +91,13 @@ class Interact:
             c.row = row
             c.observe(self._update, names="value")
 
-        visible = self.controller.children[row].children[-1].layout.visiblility
-        visible = bool(visible)
-        self.controller.children[row].children[disable].disabled = not visible
-        self.controller.children[row].children[-1].visible = not visible
-        controllers = controllers if not visible else []
-        self.controller.children[row].children[-1].children = controllers
+        if False:
+            visible = self.controller.children[row].children[-1].layout.visiblility
+            visible = bool(visible)
+            self.controller.children[row].children[disable].disabled = not visible
+            self.controller.children[row].children[-1].visible = not visible
+            controllers = controllers if not visible else []
+            self.controller.children[row].children[-1].children = controllers
 
     def _create_shelf(self, i=0):
         """
@@ -112,9 +113,9 @@ class Interact:
         )
         encoding.layout.width = "20%"
 
-        adv = widgets.VBox(children=[], visible=False, layout=Layout(visibility=False))
+        adv = widgets.VBox(children=[], visible=False, layout=Layout(visibility="hidden"))
 
-        button = widgets.Button(description="options")
+        button = widgets.Button(description="options", disabled=True)
         button.on_click(self._show_advanced)
         button.layout.width = "10%"
 
