@@ -1,9 +1,13 @@
-import altair
+import io
+import sys
+from warnings import warn
+
 import ipywidgets as widgets
+import pandas as pd
 from ipywidgets import Layout
 from IPython.display import display, clear_output, display_pretty, HTML, Image, SVG
-import pandas as pd
-import io
+
+import altair
 
 
 def interact_with(df, ndims=3, **kwargs):
@@ -44,6 +48,15 @@ class Interact:
     def __init__(self, df, ndims=3, show=True):
         if not isinstance(df, pd.core.frame.DataFrame):
             raise ValueError("Interact takes a DataFrame as input")
+
+        if "google.colab" in sys.modules:
+            warn(
+                "It appears that altair_widgets is running on Google CoLab. "
+                "altair_widgets may not perform as expected; "
+                "a solution is at "
+                "https://github.com/altair-viz/altair_widgets/blob/master/README.md##google-colab"
+            )
+
         columns = [None] + _get_columns(df)
         #  columns = _get_columns(df)
         self.columns = columns
@@ -113,7 +126,9 @@ class Interact:
         )
         encoding.layout.width = "20%"
 
-        adv = widgets.VBox(children=[], visible=False, layout=Layout(visibility="hidden"))
+        adv = widgets.VBox(
+            children=[], visible=False, layout=Layout(visibility="hidden")
+        )
 
         button = widgets.Button(description="options", disabled=True)
         button.on_click(self._show_advanced)
@@ -245,12 +260,14 @@ def _get_encodings():
     encodings = []
     for name in dir(altair):
         value = getattr(altair, name)
-        if (type(value) is type and
-            issubclass(value, altair.FieldChannelMixin) and
-            name != 'FieldChannelMixin'):
+        if (
+            type(value) is type
+            and issubclass(value, altair.FieldChannelMixin)
+            and name != "FieldChannelMixin"
+        ):
             encodings.append(name.lower())
     # reorder to have the most useful encodings at the top
-    top = ['x', 'y', 'color']
+    top = ["x", "y", "color"]
     others = sorted([e for e in encodings if e not in top])
     return top + others
 
@@ -264,8 +281,8 @@ def _get_marks():
     >>> _get_marks()[0]
     'mark_point'
     """
-    return [m for m in dir(altair.mixins.MarkMethodMixin()) if
-            m.startswith('mark_')]
+    return [m for m in dir(altair.mixins.MarkMethodMixin()) if m.startswith("mark_")]
+
 
 def _get_mark_params():
     return ["color", "applyColorToBackground", "shortTimeLabels"]
